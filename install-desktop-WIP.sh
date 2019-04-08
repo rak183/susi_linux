@@ -2,6 +2,9 @@
 
 ### susi_linux install on desktop
 
+## Warning
+# This probably only works on a Debian/Stretch machine, not anything else
+
 adduser --gecos "" --disabled-password pi
 	# use password "raspberry"
 	# TODO add pi to sudo group?
@@ -10,6 +13,10 @@ mkdir -p /usr/share/man/man1
 	# setting up links -- happens only in stretch-slim docker container, but not in real system
 apt-get install -y ca-certificates git openssl wget python3-setuptools perl libterm-readline-gnu-perl python3-pip sox libsox-fmt-all flac libportaudio2 libatlas3-base libpulse0 libasound2 vlc-bin vlc-plugin-base vlc-plugin-video-splitter python3-cairo python3-flask flite openjdk-8-jdk-headless pixz udisks2 vlc-nox i2c-tools libasound2-plugins python3-dev
 	# make sure python-config is found
+	# I really *HATE* that, but somehow the 
+	#	python3 setup.py build
+	# call down there for snowboy calls "python-config" instead of "python3-config"
+	# no idea how this can be changed (but is surely possible!!!)
 ln -s python3-config  /usr/bin/python-config
 	# python3 library deps
 	# instead of pip3 install...
