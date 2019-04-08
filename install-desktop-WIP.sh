@@ -2,22 +2,28 @@
 
 ### susi_linux install on desktop
 
+release=stretch
+
 ## Warning
 # This probably only works on a Debian/Stretch machine, not anything else
+# we try to support buster here when release is set to buster, but
+# this is somehow shaky, and needs more investigation
 
 adduser --gecos "" --disabled-password pi
-	# use password "raspberry"
-	# TODO add pi to sudo group?
+usermod -a -G audio,video,plugdev pi
+	# for sound card access, but we throw in video and plugdev for good
+	# TODO: use password "raspberry"?
+	# TODO: add pi to sudo group?
 mkdir -p /usr/share/man/man1
 	# this is necessary otherwise openjdk installation fails due to update-alternatives problems
 	# setting up links -- happens only in stretch-slim docker container, but not in real system
 apt-get install -y ca-certificates git openssl wget python3-setuptools perl libterm-readline-gnu-perl python3-pip sox libsox-fmt-all flac libportaudio2 libatlas3-base libpulse0 libasound2 vlc-bin vlc-plugin-base vlc-plugin-video-splitter python3-cairo python3-flask flite openjdk-8-jdk-headless pixz udisks2 vlc-nox i2c-tools libasound2-plugins python3-dev
-	# make sure python-config is found
-	# I really *HATE* that, but somehow the 
-	#	python3 setup.py build
-	# call down there for snowboy calls "python-config" instead of "python3-config"
-	# no idea how this can be changed (but is surely possible!!!)
-ln -s python3-config  /usr/bin/python-config
+if [ "$release" = "stretch" ] ; then
+	apt-get install -y vlc-nox
+else
+	apt-get install -y vlc-bin
+fi
+
 	# python3 library deps
 	# instead of pip3 install...
 apt-get install -y swig python3-requests python3-service-identity python3-pyaudio python3-levenshtein python3-pafy python3-colorlog python3-watson-developer-cloud libpulse-dev libasound2-dev libatlas-base-dev
@@ -32,7 +38,8 @@ pip3 download --no-deps snowboy
 	# TODO what to do when version number changes?
 tar -xf snowboy-1.2.0b1.tar.gz
 cd snowboy-1.2.0b1/swig/Python
-rm snowboy-detect-swig.cc snowboy-detect-swig.o
+make clean
+sed -i -e 's/python-config/python3-config/g' Makefile
 cd ../..
 python3 setup.py build
 python3 setup.py install
@@ -52,11 +59,20 @@ mv susi_api_wrapper/python_wrapper/requirements.txt susi_linux/requirements.txt
 rm -rf susi_api_wrapper
 chown -R pi.pi /home/pi/SUSI.AI
 cd susi_linux
-pip3 install -U wheel	# necessary, otherwise "future" installation is broken
+if [ "$release" = "stretch"] ; then
+	pip3 install -U wheel	# necessary, otherwise "future" installation is broken
+fi
 pip3 install -r requirements.txt
 	# remove spidev and RPi.GPIO from requirements.hw
 sed -e 's/^spidev//' -e 's/^RPi\.GPIO//' requirements-hw.txt > req-hw.txt
-pip3 install -r req-hw.txt
+if [ "$release" = "stretch"] ; then
+	pip3 install -r req-hw.txt
+else
+	# req-hw has problems:
+	# - server does not have packages for buster python 3.7
+	# - rx is not available?
+	pip3 install speechRecognition==3.8.1 service_identity pocketsphinx==0.1.15 pyaudio json_config google_speech async_promises python-Levenshtein pyalsaaudio 'youtube-dl>2018' python-vlc pafy colorlog
+fi
 pip3 install -r requirements-special.txt
 
 wget https://raw.githubusercontent.com/videolan/vlc/master/share/lua/playlist/youtube.lua
@@ -95,7 +111,8 @@ sed -i -e 's/^import snowboydetect/import snowboy.snowboydetect/' \
 
 	# fix main/states/led.py
 	# Fixed by letting led be loadable and detect that it doesn't have a seeed attached
-patch -p1 <'EOF'
+cd $DIR_PATH
+patch -p1 <<'EOF'
 diff --git a/main/states/led.py b/main/states/led.py
 index fa84f2a..7ec9e30 100644
 --- a/main/states/led.py
@@ -129,8 +146,6 @@ index fa84f2a..7ec9e30 100644
              return
          self.num_led = num_led  # The number of LEDs in the Strip
 EOF
-
-
 
 
 
